@@ -1,0 +1,15 @@
+.forbidden {
+  display: flex;
+  justify-content: center;
+  padding: 4rem 1rem;
+}
+
+.forbidden-card {
+  max-width: 32rem;
+  text-align: center;
+}
+
+.forbidden-title {
+  margin: 0 0 0.5rem;
+  font: var(--mat-sys-headline-small);
+}

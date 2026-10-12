@@ -1,0 +1,93 @@
+<div class="form-grid" [formGroup]="group()">
+  <mat-form-field appearance="outline" class="span-2">
+    <mat-label>Legal name</mat-label>
+    <input matInput id="legalName" formControlName="legalName" autocomplete="organization" />
+    @if (group().controls['legalName'].pending) {
+      <mat-hint>Checking availability…</mat-hint>
+    }
+    <mat-error>
+      <app-field-error label="Legal name" [control]="control('legalName')" />
+    </mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>DBA (optional)</mat-label>
+    <input matInput id="dba" formControlName="dba" autocomplete="organization" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Entity type</mat-label>
+    <mat-select id="entityType" formControlName="entityType">
+      @for (type of entityTypes; track type.value) {
+        <mat-option [value]="type.value">{{ type.label }}</mat-option>
+      }
+    </mat-select>
+    <mat-error>
+      <app-field-error label="Entity type" [control]="control('entityType')" />
+    </mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>EIN</mat-label>
+    <input matInput id="ein" formControlName="ein" inputmode="numeric" placeholder="00-0000000" />
+    <mat-hint>Format: 00-0000000</mat-hint>
+    <mat-error><app-field-error label="EIN" [control]="control('ein')" /></mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Website (optional)</mat-label>
+    <input matInput id="website" type="url" formControlName="website" placeholder="https://" />
+    <mat-error><app-field-error label="Website" [control]="control('website')" /></mat-error>
+  </mat-form-field>
+
+  <div class="span-2" formGroupName="address">
+    <h3 class="section-title">Business address</h3>
+    <div class="form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Address line 1</mat-label>
+        <input matInput id="line1" formControlName="line1" autocomplete="address-line1" />
+        <mat-error>
+          <app-field-error label="Address" [control]="control('address.line1')" />
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Address line 2 (optional)</mat-label>
+        <input matInput id="line2" formControlName="line2" autocomplete="address-line2" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>City</mat-label>
+        <input matInput id="city" formControlName="city" autocomplete="address-level2" />
+        <mat-error><app-field-error label="City" [control]="control('address.city')" /></mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>State</mat-label>
+        <input matInput id="state" formControlName="state" autocomplete="address-level1" />
+        <mat-error>
+          <app-field-error label="State" [control]="control('address.state')" />
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Postal code</mat-label>
+        <input matInput id="postalCode" formControlName="postalCode" autocomplete="postal-code" />
+        <mat-error>
+          <app-field-error label="Postal code" [control]="control('address.postalCode')" />
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Country</mat-label>
+        <mat-select id="country" formControlName="country">
+          <mat-option value="US">United States</mat-option>
+          <mat-option value="CA">Canada</mat-option>
+        </mat-select>
+        <mat-error>
+          <app-field-error label="Country" [control]="control('address.country')" />
+        </mat-error>
+      </mat-form-field>
+    </div>
+  </div>
+</div>

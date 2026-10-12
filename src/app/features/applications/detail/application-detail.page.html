@@ -1,0 +1,240 @@
+<div class="app-container">
+  @if (state() === 'loading') {
+    <mat-card appearance="outlined" aria-busy="true">
+      <mat-card-content><app-loading-skeleton [rows]="8" /></mat-card-content>
+    </mat-card>
+  } @else if (state() === 'forbidden') {
+    <app-error-state
+      title="You don't have access to this application"
+      message="It isn't assigned to you, and your role doesn't grant broad access."
+      [showRetry]="false"
+    />
+    <a mat-stroked-button class="back-action" routerLink="/applications">
+      Back to applications
+    </a>
+  } @else if (state() === 'not-found') {
+    <app-error-state
+      title="Application not found"
+      message="It may have been removed, or the link is wrong."
+      [showRetry]="false"
+    />
+    <a mat-stroked-button class="back-action" routerLink="/applications">
+      Back to applications
+    </a>
+  } @else if (state() === 'error') {
+    <app-error-state
+      title="Couldn't load this application"
+      [message]="error()"
+      (retry)="reload()"
+    />
+  } @else if (application(); as app) {
+    <header class="page-header">
+      <div>
+        <a class="back-link" routerLink="/applications">← Applications</a>
+        <h1 class="page-title">{{ app.businessName }}</h1>
+        <p class="text-muted text-small">
+          v{{ app.version }} · Updated {{ app.updatedAt | date: 'medium' }}
+        </p>
+      </div>
+      <div class="row-wrap">
+        <app-status-badge [status]="app.status" />
+        @if (canEditDraft()) {
+          <a mat-stroked-button [routerLink]="['/applications', app.id, 'edit']">
+            Continue editing
+          </a>
+        }
+      </div>
+    </header>
+
+    @if (error()) {
+      <div class="action-error" role="alert">{{ error() }}</div>
+    }
+
+    <div class="detail-grid">
+      <div class="detail-main">
+        <mat-card appearance="outlined">
+          <mat-card-content>
+            <h2 class="section-title">Business</h2>
+            <dl class="detail-list">
+              <dt>Legal name</dt>
+              <dd>{{ app.business.legalName }}</dd>
+              <dt>DBA</dt>
+              <dd>{{ app.business.dba || '—' }}</dd>
+              <dt>Entity type</dt>
+              <dd>{{ app.business.entityType }}</dd>
+              <dt>EIN</dt>
+              <dd>
+                <app-masked-field
+                  [value]="app.business.ein"
+                  fieldKey="ein"
+                  [applicationId]="app.id"
+                  label="EIN"
+                />
+              </dd>
+              <dt>Website</dt>
+              <dd>{{ app.business.website || '—' }}</dd>
+              <dt>Address</dt>
+              <dd>
+                {{ app.business.address.line1 }}
+                @if (app.business.address.line2) {
+                  , {{ app.business.address.line2 }}
+                }
+                , {{ app.business.address.city }}, {{ app.business.address.state }}
+                {{ app.business.address.postalCode }}
+              </dd>
+            </dl>
+          </mat-card-content>
+        </mat-card>
+
+    <mat-card appearance="outlined">
+      <mat-card-content>
+        <h2 class="section-title">Owners &amp; principals</h2>
+        <ul class="owners-list">
+          @for (owner of app.owners; track owner.id) {
+            <li>
+              <div class="owners-list__identity">
+                <span class="owners-list__name">{{ owner.name }}</span>
+                <span class="text-muted text-small">
+                  {{ owner.ownershipPct }}% · DOB {{ owner.dob | date: 'mediumDate' }}
+                </span>
+              </div>
+              <div class="text-small">
+                SSN:
+                <app-masked-field
+                  [value]="owner.ssnLast4"
+                  [fieldKey]="'ssnLast4:' + owner.id"
+                  [applicationId]="app.id"
+                  [label]="'SSN for ' + owner.name"
+                />
+              </div>
+            </li>
+          }
+        </ul>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined">
+      <mat-card-content>
+        <h2 class="section-title">Banking &amp; processing</h2>
+        <dl class="detail-list">
+          <dt>Bank</dt>
+          <dd>{{ app.banking.bankName }}</dd>
+          <dt>Routing number</dt>
+          <dd>
+            <app-masked-field
+              [value]="app.banking.routingNumber"
+              fieldKey="routingNumber"
+              [applicationId]="app.id"
+              label="routing number"
+            />
+          </dd>
+          <dt>Account number</dt>
+          <dd>
+            <app-masked-field
+              [value]="app.banking.accountNumber"
+              fieldKey="accountNumber"
+              [applicationId]="app.id"
+              label="bank account number"
+            />
+          </dd>
+          <dt>Monthly volume</dt>
+          <dd>{{ app.banking.monthlyVolume | number }}</dd>
+          <dt>Average ticket</dt>
+          <dd>{{ app.banking.averageTicket | number }}</dd>
+        </dl>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined">
+      <mat-card-content>
+        <h2 class="section-title">Documents</h2>
+        @if (documents().length === 0) {
+          <p class="text-muted text-small">No documents uploaded yet.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">File</th>
+                <th scope="col">Type</th>
+                <th scope="col">Uploaded</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (document of documents(); track document.id) {
+                <tr>
+                  <td>
+                    <span class="strong">{{ document.name }}</span>
+                    <span class="text-muted text-small block">{{ document.sizeKb }} KB</span>
+                  </td>
+                  <td class="text-muted">{{ document.type }}</td>
+                  <td class="text-muted">{{ document.uploadedAt | date: 'medium' }}</td>
+                  <td>
+                    <span class="chip" [class]="documentBadge(document.status)">
+                      {{ documentStatusLabel(document.status) }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <div class="detail-side">
+    <mat-card appearance="outlined">
+      <mat-card-content>
+        <app-risk-history
+          [decisions]="riskHistory()"
+          [loading]="historyState() === 'loading'"
+          [error]="historyError()"
+          [reviewerNames]="reviewerNames()"
+          (retry)="loadRiskHistory()"
+        />
+      </mat-card-content>
+    </mat-card>
+
+    @if (showReviewPanel()) {
+      <mat-card appearance="outlined">
+        <mat-card-content>
+          <app-review-panel
+            [application]="app"
+            [submitting]="deciding()"
+            (decide)="requestDecision($event)"
+          />
+        </mat-card-content>
+      </mat-card>
+    }
+
+    @if (canManageAssignment()) {
+      <mat-card appearance="outlined">
+        <mat-card-content>
+          <h2 class="section-title">Assignment</h2>
+          <mat-form-field appearance="outline" class="assignment-field">
+            <mat-label>Assigned reviewer</mat-label>
+            <mat-select
+              [value]="assignedReviewerId()"
+              (valueChange)="assignedReviewerId.set($event)"
+            >
+              @for (reviewer of reviewers(); track reviewer.id) {
+                <mat-option [value]="reviewer.id">{{ reviewer.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="assigning() || !assignedReviewerId()"
+            (click)="assign()"
+          >
+            {{ assigning() ? 'Assigning…' : 'Assign reviewer' }}
+          </button>
+        </mat-card-content>
+      </mat-card>
+    }
+  </div>
+</div>
+  }
+</div>

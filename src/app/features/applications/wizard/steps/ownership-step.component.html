@@ -1,0 +1,83 @@
+<div class="owners__head">
+  <h3 class="section-title">Owners &amp; principals</h3>
+  <button mat-stroked-button type="button" (click)="add()">Add owner</button>
+</div>
+
+@if (totalInvalid()) {
+  <div class="owner-total-alert" role="alert">
+    Ownership percentages must total 100% (currently {{ total() }}%).
+  </div>
+}
+
+<div class="owners__list">
+  @for (owner of groups(); track owner; let i = $index) {
+    <mat-card appearance="outlined">
+      <mat-card-content>
+        <div [formGroup]="owner">
+          <div class="owners__card-head">
+            <h4 class="owners__card-title">Owner {{ i + 1 }}</h4>
+            @if (groups().length > 1) {
+              <button mat-button type="button" (click)="remove(i)">
+                Remove owner {{ i + 1 }}
+              </button>
+            }
+          </div>
+
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Full name</mat-label>
+              <input
+                matInput
+                [id]="'owner-name-' + i"
+                formControlName="name"
+                autocomplete="name"
+              />
+              <mat-error>
+                <app-field-error label="Name" [control]="control(owner, 'name')" />
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Date of birth</mat-label>
+              <input matInput [id]="'owner-dob-' + i" type="date" formControlName="dob" />
+              <mat-error>
+                <app-field-error label="Date of birth" [control]="control(owner, 'dob')" />
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Ownership %</mat-label>
+              <input
+                matInput
+                [id]="'owner-pct-' + i"
+                type="number"
+                min="0"
+                max="100"
+                formControlName="ownershipPct"
+              />
+              <mat-error>
+                <app-field-error label="Ownership %" [control]="control(owner, 'ownershipPct')" />
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>SSN (last 4)</mat-label>
+              <input
+                matInput
+                [id]="'owner-ssn-' + i"
+                inputmode="numeric"
+                maxlength="4"
+                autocomplete="off"
+                formControlName="ssnLast4"
+              />
+              <mat-hint>Sent to the server only. Never written to browser storage.</mat-hint>
+              <mat-error>
+                <app-field-error label="SSN" [control]="control(owner, 'ssnLast4')" />
+              </mat-error>
+            </mat-form-field>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

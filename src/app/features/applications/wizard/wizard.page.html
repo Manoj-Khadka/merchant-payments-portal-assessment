@@ -1,0 +1,138 @@
+<div class="app-container">
+  <div class="page-header">
+    <h1 class="page-title">{{ editing ? 'Continue draft' : 'New application' }}</h1>
+    <div class="autosave-status">
+      <span class="text-muted text-small" aria-live="polite">
+        @switch (autosave.saveState()) {
+          @case ('saving') {
+            Saving…
+          }
+          @case ('saved') {
+            Saved {{ autosave.lastSavedAt() | date: 'mediumTime' }}
+          }
+          @case ('error') {
+            <span class="autosave-error">Couldn't save</span>
+          }
+          @default {
+            Drafts save automatically
+          }
+        }
+      </span>
+      @if (autosave.saveState() === 'error' && !autosave.conflict()) {
+        <button mat-button type="button" class="autosave-retry" (click)="autosave.retry()">
+          Retry
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (autosave.conflict()) {
+    <div class="conflict" role="alert">
+      <span>This draft was updated somewhere else. Reload to pick up the latest version.</span>
+      <button mat-stroked-button type="button" (click)="reload()">Reload</button>
+    </div>
+  }
+
+  @if (loading()) {
+    <mat-card appearance="outlined" aria-busy="true">
+      <mat-card-content><app-loading-skeleton [rows]="8" /></mat-card-content>
+    </mat-card>
+  } @else if (loadError()) {
+    <app-error-state
+      title="Couldn't open this application"
+      [message]="loadError()"
+      (retry)="reload()"
+    />
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (errorSummary().length) {
+        <div class="error-summary" role="alert">
+          <p class="error-summary__title">Please fix the following before continuing:</p>
+          <ul>
+            @for (item of errorSummary(); track item.label + (item.id ?? '')) {
+              <li>
+                <button
+                  type="button"
+                  class="error-summary__link"
+                  (click)="goToField(item)"
+                >
+                  {{ item.label }}
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+      <mat-stepper #stepper linear (selectionChange)="onStepChange($event)">
+        <mat-step [stepControl]="businessGroup">
+          <ng-template matStepLabel>
+            <span [attr.aria-current]="step() === 0 ? 'step' : null">Business info</span>
+          </ng-template>
+          <h2 id="wizard-step-0" class="step-heading" tabindex="-1">
+            Step 1 of 4: Business info
+          </h2>
+          <app-business-step [group]="businessGroup" />
+        </mat-step>
+
+        <mat-step [stepControl]="ownershipArray">
+          <ng-template matStepLabel>
+            <span [attr.aria-current]="step() === 1 ? 'step' : null">Owners</span>
+          </ng-template>
+          <h2 id="wizard-step-1" class="step-heading" tabindex="-1">
+            Step 2 of 4: Owners &amp; principals
+          </h2>
+          <app-ownership-step [array]="ownershipArray" />
+        </mat-step>
+
+        <mat-step [stepControl]="bankingGroup">
+          <ng-template matStepLabel>
+            <span [attr.aria-current]="step() === 2 ? 'step' : null">Banking</span>
+          </ng-template>
+          <h2 id="wizard-step-2" class="step-heading" tabindex="-1">
+            Step 3 of 4: Banking &amp; processing
+          </h2>
+          <app-banking-step [group]="bankingGroup" />
+        </mat-step>
+
+        <mat-step label="Review">
+          <h2 id="wizard-step-3" class="step-heading" tabindex="-1">
+            Step 4 of 4: Review &amp; submit
+          </h2>
+          <app-review-step [value]="reviewValue()" (edit)="goTo($event)" />
+        </mat-step>
+      </mat-stepper>
+
+      @if (submitError()) {
+        <div class="submit-error" role="alert">{{ submitError() }}</div>
+      }
+
+      <div class="wizard-actions">
+        <button mat-stroked-button type="button" [disabled]="step() === 0" (click)="back()">
+          Back
+        </button>
+        @if (step() < stepCount - 1) {
+          <button mat-flat-button type="button" (click)="next()">Next</button>
+        } @else {
+          <button
+            mat-flat-button
+            type="submit"
+            [disabled]="
+              submitting() || autosave.hasPendingChanges() || autosave.saveState() === 'error'
+            "
+          >
+            @if (submitting()) {
+              Submitting…
+            } @else if (autosave.saveState() === 'error') {
+              Fix save error first
+            } @else if (autosave.hasPendingChanges()) {
+              Saving draft…
+            } @else {
+              Submit application
+            }
+          </button>
+        }
+      </div>
+    </form>
+  }
+</div>

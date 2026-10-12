@@ -1,0 +1,72 @@
+<div class="form-grid" [formGroup]="group()">
+  <mat-form-field appearance="outline">
+    <mat-label>Bank name</mat-label>
+    <input matInput id="bankName" formControlName="bankName" autocomplete="off" />
+    <mat-error><app-field-error label="Bank name" [control]="control('bankName')" /></mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Account number</mat-label>
+    <input
+      matInput
+      id="accountNumber"
+      formControlName="accountNumber"
+      inputmode="numeric"
+      autocomplete="off"
+    />
+    <mat-error>
+      <app-field-error label="Account number" [control]="control('accountNumber')" />
+    </mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Routing number</mat-label>
+    <input
+      matInput
+      id="routingNumber"
+      formControlName="routingNumber"
+      inputmode="numeric"
+      autocomplete="off"
+    />
+    <mat-hint>9 digits</mat-hint>
+    <mat-error>
+      <app-field-error label="Routing number" [control]="control('routingNumber')" />
+    </mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Monthly volume (USD)</mat-label>
+    <input
+      matInput
+      id="monthlyVolume"
+      type="number"
+      min="0"
+      formControlName="monthlyVolume"
+      inputmode="decimal"
+    />
+    <mat-error>
+      <app-field-error label="Monthly volume" [control]="control('monthlyVolume')" />
+    </mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Average ticket</mat-label>
+    <input
+      matInput
+      id="averageTicket"
+      type="number"
+      min="0"
+      formControlName="averageTicket"
+      inputmode="numeric"
+    />
+    <mat-error>
+      <app-field-error label="Average ticket" [control]="control('averageTicket')" />
+    </mat-error>
+  </mat-form-field>
+</div>
+
+@if (rangeInvalid()) {
+  <div class="range-alert" role="alert">
+    Average ticket cannot exceed the monthly volume.
+  </div>
+}

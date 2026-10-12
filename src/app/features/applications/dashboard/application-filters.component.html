@@ -1,0 +1,17 @@
+<form class="filters" [formGroup]="form">
+  <mat-form-field appearance="outline" class="filters__search">
+    <mat-label>Search</mat-label>
+    <input matInput type="search" formControlName="q" placeholder="Business name" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Status</mat-label>
+    <mat-select formControlName="status">
+      @for (option of statuses; track option.value) {
+        <mat-option [value]="option.value">{{ option.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <ng-content />
+</form>

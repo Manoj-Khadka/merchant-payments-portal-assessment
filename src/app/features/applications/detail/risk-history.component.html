@@ -1,0 +1,31 @@
+<h2 class="section-title">Risk history</h2>
+@if (loading()) {
+  <div aria-busy="true"><app-loading-skeleton [rows]="3" /></div>
+} @else if (error()) {
+  <app-error-state
+    title="Couldn't load history"
+    [message]="error()"
+    (retry)="retry.emit()"
+  />
+} @else if (decisions().length === 0) {
+  <p class="text-muted text-small">No decisions recorded yet.</p>
+} @else {
+  <ol class="timeline">
+    @for (decision of decisions(); track decision.id) {
+      <li>
+        <div class="timeline__head">
+          <span
+            class="chip"
+            [class.chip--approve]="decision.decision === 'APPROVE'"
+            [class.chip--reject]="decision.decision === 'REJECT'"
+          >
+            {{ decision.decision === 'APPROVE' ? 'Approved' : 'Rejected' }}
+          </span>
+          <span class="text-muted text-small">{{ decision.at | date: 'medium' }}</span>
+        </div>
+        <p class="timeline__reason">{{ decision.reason }}</p>
+        <span class="text-muted text-small">Reviewer: {{ reviewerName(decision.reviewerId) }}</span>
+      </li>
+    }
+  </ol>
+}

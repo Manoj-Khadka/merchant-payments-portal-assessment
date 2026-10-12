@@ -1,0 +1,67 @@
+<div class="login">
+  <mat-card appearance="outlined" class="login-card">
+    <mat-card-content>
+      <h1 class="login-title">Sign in</h1>
+      <p class="text-muted">Merchant payments portal</p>
+
+      @if (error()) {
+        <app-error-state title="Sign in failed" [message]="error()" [showRetry]="false" />
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <mat-form-field appearance="outline" class="field">
+          <mat-label>Email</mat-label>
+          <input
+            matInput
+            id="email"
+            type="email"
+            formControlName="email"
+            autocomplete="username"
+          />
+          <mat-error>
+            <app-field-error label="Email" [control]="form.controls.email" />
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field">
+          <mat-label>Password</mat-label>
+          <input
+            matInput
+            id="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="current-password"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+            [attr.aria-pressed]="showPassword()"
+            (click)="showPassword.set(!showPassword())"
+          >
+            <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          <mat-error>
+            <app-field-error label="Password" [control]="form.controls.password" />
+          </mat-error>
+        </mat-form-field>
+
+        <button mat-flat-button type="submit" class="submit" [disabled]="submitting()">
+          {{ submitting() ? 'Signing in…' : 'Sign in' }}
+        </button>
+      </form>
+
+      <mat-divider class="divider" />
+
+      <p class="text-muted text-small">Demo accounts (password: <code>password</code>)</p>
+      <div class="row-wrap">
+        @for (account of demoAccounts; track account.email) {
+          <button mat-stroked-button type="button" (click)="useDemo(account.email)">
+            {{ account.label }}
+          </button>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

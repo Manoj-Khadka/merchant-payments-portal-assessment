@@ -1,0 +1,117 @@
+<div class="app-container">
+  <div class="page-header row-wrap">
+    <div>
+      <h1 class="page-title">Merchant applications</h1>
+      <p class="text-muted">Review and manage onboarding applications.</p>
+    </div>
+    <a mat-flat-button *hasPermission="'application:create'" routerLink="new">
+      New application
+    </a>
+  </div>
+
+  <mat-card class="filter-card" appearance="outlined">
+    <mat-card-content>
+      <app-application-filters
+        [query]="store.query().q"
+        [status]="store.query().status"
+        (queryChange)="store.setSearch($event)"
+        (statusChange)="store.setStatus($event)"
+      >
+        <span class="text-muted text-small">
+          {{ store.data()?.total ?? 0 }} result(s)
+        </span>
+      </app-application-filters>
+    </mat-card-content>
+  </mat-card>
+
+  @if (store.state() === 'loading') {
+    <mat-card appearance="outlined" aria-busy="true">
+      <mat-card-content><app-loading-skeleton [rows]="6" /></mat-card-content>
+    </mat-card>
+  } @else if (store.state() === 'error') {
+    <app-error-state
+      title="Couldn't load applications"
+      [message]="store.error()"
+      (retry)="store.retry()"
+    />
+  } @else if (store.data(); as page) {
+    @if (page.items.length === 0) {
+      <mat-card appearance="outlined">
+        <mat-card-content class="empty-state">
+          <p class="empty-state__title">No applications found</p>
+          <p class="text-muted">Try a different filter or start a new application.</p>
+        </mat-card-content>
+      </mat-card>
+    } @else {
+      <!-- Desktop: a Material table. -->
+      <mat-card class="desktop-only table-card" appearance="outlined">
+        <table mat-table [dataSource]="page.items" aria-label="Merchant applications">
+          <ng-container matColumnDef="business">
+            <th mat-header-cell *matHeaderCellDef scope="col">Business</th>
+            <td mat-cell *matCellDef="let application" class="cell-strong">
+              {{ application.businessName }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
+            <td mat-cell *matCellDef="let application">
+              <app-status-badge [status]="application.status" />
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="version">
+            <th mat-header-cell *matHeaderCellDef scope="col">Version</th>
+            <td mat-cell *matCellDef="let application">v{{ application.version }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="updated">
+            <th mat-header-cell *matHeaderCellDef scope="col">Updated</th>
+            <td mat-cell *matCellDef="let application">
+              {{ application.updatedAt | date: 'medium' }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef scope="col" class="cell-end">Actions</th>
+            <td mat-cell *matCellDef="let application" class="cell-end">
+              <a mat-stroked-button [routerLink]="[application.id]">Open</a>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+        </table>
+      </mat-card>
+
+      <!-- Mobile: the same rows collapse to tappable cards. -->
+      <div class="mobile-only card-list">
+        @for (application of page.items; track application.id) {
+          <a class="card-link" [routerLink]="[application.id]">
+            <mat-card appearance="outlined">
+              <mat-card-content>
+                <div class="card-list__head">
+                  <span class="cell-strong">{{ application.businessName }}</span>
+                  <app-status-badge [status]="application.status" />
+                </div>
+                <div class="text-muted text-small">
+                  v{{ application.version }} · {{ application.updatedAt | date: 'medium' }}
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </a>
+        }
+      </div>
+
+      <mat-paginator
+        class="paginator"
+        aria-label="Select page"
+        [length]="page.total"
+        [pageSize]="page.pageSize"
+        [pageIndex]="page.page - 1"
+        [pageSizeOptions]="[5, 10, 20, 50]"
+        (page)="onPage($event)"
+      />
+    }
+  }
+</div>

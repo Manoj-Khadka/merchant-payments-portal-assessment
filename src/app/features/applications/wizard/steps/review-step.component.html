@@ -1,0 +1,76 @@
+<div class="review">
+  <mat-card appearance="outlined">
+    <mat-card-content>
+      <div class="review__head">
+        <h4 class="review__title">Business info</h4>
+        <button mat-button type="button" (click)="edit.emit(0)">Edit</button>
+      </div>
+      <dl class="detail-list">
+        <dt>Legal name</dt>
+        <dd>{{ business().legalName }}</dd>
+        <dt>DBA</dt>
+        <dd>{{ business().dba || '—' }}</dd>
+        <dt>Entity type</dt>
+        <dd>{{ business().entityType }}</dd>
+        <dt>EIN</dt>
+        <dd>{{ business().ein }}</dd>
+        <dt>Website</dt>
+        <dd>{{ business().website || '—' }}</dd>
+        <dt>Address</dt>
+        <dd>
+          {{ business().address.line1 }}
+          @if (business().address.line2) {
+            , {{ business().address.line2 }}
+          }
+          , {{ business().address.city }}, {{ business().address.state }}
+          {{ business().address.postalCode }}
+        </dd>
+      </dl>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <mat-card-content>
+      <div class="review__head">
+        <h4 class="review__title">Owners &amp; principals</h4>
+        <button mat-button type="button" (click)="edit.emit(1)">Edit</button>
+      </div>
+      <ul class="review__owners">
+        @for (owner of owners(); track owner.id) {
+          <li>
+            <span>{{ owner.name }}</span>
+            <span class="text-muted">
+              {{ owner.ownershipPct }}% · DOB {{ owner.dob }} · SSN ••••{{ owner.ssnLast4 }}
+            </span>
+          </li>
+        }
+      </ul>
+      <p class="text-muted text-small review__total">Total ownership: {{ ownershipTotal() }}%</p>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <mat-card-content>
+      <div class="review__head">
+        <h4 class="review__title">Banking &amp; processing</h4>
+        <button mat-button type="button" (click)="edit.emit(2)">Edit</button>
+      </div>
+      <dl class="detail-list">
+        <dt>Bank</dt>
+        <dd>{{ banking().bankName }}</dd>
+        <dt>Account</dt>
+        <dd>{{ banking().accountNumber }}</dd>
+        <dt>Routing</dt>
+        <dd>{{ banking().routingNumber }}</dd>
+        <dt>Monthly volume</dt>
+        <dd>{{ banking().monthlyVolume | number }}</dd>
+        <dt>Average ticket</dt>
+        <dd>{{ banking().averageTicket | number }}</dd>
+      </dl>
+    </mat-card-content>
+  </mat-card>
+
+  <p class="text-muted text-small">
+    Submitting sends the application for review. It can no longer be edited afterwards.
+  </p>
+</div>

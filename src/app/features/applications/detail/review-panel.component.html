@@ -1,0 +1,33 @@
+<h2 class="section-title">Decision</h2>
+@if (isDecided()) {
+  <p class="text-muted text-small">
+    This application is already {{ application().status.toLowerCase() }}.
+  </p>
+} @else {
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <mat-form-field appearance="outline" class="field">
+      <mat-label>Decision</mat-label>
+      <mat-select id="decision" formControlName="decision">
+        <mat-option value="APPROVE">Approve</mat-option>
+        <mat-option value="REJECT">Reject</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="field">
+      <mat-label>Reason</mat-label>
+      <textarea
+        matInput
+        id="reason"
+        rows="3"
+        formControlName="reason"
+        [attr.aria-required]="reasonRequired()"
+      ></textarea>
+      <mat-hint>{{ reasonRequired() ? 'Required to reject (min. 5 characters).' : 'Optional for approvals.' }}</mat-hint>
+      <mat-error><app-field-error label="Reason" [control]="reasonControl" /></mat-error>
+    </mat-form-field>
+
+    <button mat-flat-button type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Submitting…' : 'Submit decision' }}
+    </button>
+  </form>
+}
