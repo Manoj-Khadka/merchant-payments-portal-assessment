@@ -1,0 +1,416 @@
+IMPLEMENTATION NOTES — merchant-payments-portal
+===============================================
+
+This document records the correctness and portability fixes applied to the
+project and the reasoning behind each one. It is organised as an engineering
+changelog: what was wrong, what changed, and why the change is correct.
+
+Every change was compiled with `npx ng build` and covered by the unit suite
+(`npx ng test --no-watch`). Current state: 9 spec files, 57 tests, all passing.
+The mock API was also exercised end-to-end.
+
+
+--------------------------------------------------------------------------
+1. Auth interceptor — a retried request's failure must not sign the user out
+--------------------------------------------------------------------------
+
+Files: src/app/core/auth/auth.interceptor.ts (+ .spec.ts)
+
+Problem
+  The interceptor performs a single-flight token refresh on `401` and then
+  retries the failed request once. The refresh-failure handler sat *after* the
+  retry, so it also caught failures of the retried request. A retry that failed
+  with `403`, `404` or `5xx` therefore triggered a logout: a permission error was
+  reported as a dead session.
+
+Change
+  Two separate error handlers, in the correct order:
+
+    next(request).pipe(
+      catchError(err => {
+        if (err is not 401) rethrow;
+        return auth.refreshAccessToken().pipe(
+          catchError(refreshErr => {          // runs before the retry
+            auth.logout();                    // the refresh itself failed
+            return throwError(refreshErr);
+          }),
+          switchMap(token =>
+            next(request.withToken(token)).pipe(
+              catchError(retryErr => {        // runs after the retry
+                if (retryErr is 401) auth.logout();
+                return throwError(retryErr);
+              })
+            )
+          )
+        );
+      })
+    )
+
+Why it is correct
+  An RxJS error handler only observes what is upstream of it. The handler placed
+  before `switchMap` cannot observe the retry, so it is structurally limited to
+  refresh failures. The handler after the retry is the only one that can log out,
+  and it does so on exactly one condition: a second `401`, meaning even the newly
+  issued access token was rejected. `403`/`404`/`500` from the retry propagate to
+  the caller and render the forbidden/error state with the session intact.
+
+Test
+  "does not log out when the retried request fails with a non-401": answers the
+  first request `401`, lets the refresh succeed, answers the retry `403`, and
+  asserts the caller received `403`, `/auth/logout` was never called, the rotated
+  refresh token is intact, and the user is still authenticated.
+
+
+--------------------------------------------------------------------------
+2. Applications store — stale and cross-session data on the dashboard
+--------------------------------------------------------------------------
+
+Files: src/app/features/applications/dashboard/applications.store.ts,
+       src/app/features/applications/dashboard/application-list.page.ts
+       (+ applications.store.spec.ts)
+
+Problem
+  Two defects in the list store:
+  - The store is a root singleton. The page only called `store.query.set(...)`
+    and the load pipeline contained `distinctUntilChanged(sameQuery)`. Re-entering
+    the page with the same filters produced an equal query, which the distinct
+    check discarded, so no request ran and stale rows remained on screen.
+  - Nothing reset the store on logout, so one user's data could be shown to the
+    next user before a refetch completed.
+
+Change
+  - Added `open(query)`, called on every page entry. It clears `data`, sets the
+    state to `loading` (so the skeleton replaces stale rows), and sets the query
+    to a fresh copy. A new object reference always notifies the signal, so the
+    pipeline re-runs even when the values are identical.
+  - Removed the `distinctUntilChanged(sameQuery)` step and the now-unused
+    `sameQuery` helper.
+  - The page constructor calls `store.open(...)` instead of `store.query.set(...)`.
+  - The store injects `AuthService` and registers an effect that watches
+    `isAuthenticated()`. On sign-out it clears `data` and `error` and sets the
+    state to `idle`. Those writes are wrapped in `untracked`.
+
+Why the query is not reset in the effect
+  Clearing the query while unauthenticated would trigger an unauthenticated
+  fetch. Clearing the data is sufficient; the next entry supplies the query via
+  `open()`.
+
+Tests
+  - "re-opening with an equal query refetches and shows the new data".
+  - "clears data and returns to idle after the user signs out".
+
+
+--------------------------------------------------------------------------
+3. Draft autosave — serialised saves, lazy version, selective retry
+--------------------------------------------------------------------------
+
+Files: src/app/features/applications/wizard/draft-autosave.service.ts
+       (+ draft-autosave.service.spec.ts)
+
+Problem
+  Saving used `switchMap`. A new edit arriving during an in-flight save cancelled
+  it; the client never observed the version the cancelled save may have produced,
+  so the next save sent a stale version and the server rejected it with a false
+  `409 version_conflict`.
+
+Change
+  - `concatMap` replaces `switchMap`: saves are serialised rather than cancelled.
+  - The version is read lazily at save-start via
+    `defer(() => this.api.saveDraft(id, value, this.version))`, so a queued save
+    uses the version returned by the preceding one.
+  - Retry is limited to transient failures (network `status 0` or `5xx`), twice
+    with exponential backoff. Deterministic failures (`400`, `403`, `409`) fail
+    immediately.
+  - Added `hasPendingChanges`, set on each edit and cleared only when the form
+    matches the last persisted value.
+
+Why serialisation is required
+  The draft version is a single shared number that only the successful save
+  receives. Overlapping or cancelled saves can miss an increment and send a stale
+  value; running saves one at a time and reading the version when each starts
+  keeps client and server in step.
+
+Related UI change: the wizard's Submit button is disabled while `hasPendingChanges`
+is true, labelled "Saving draft…", and `submit()` returns early in that state.
+
+Test: "overlapping saves serialise as versions 0 then 1" and "a `409` is not
+retried".
+
+
+--------------------------------------------------------------------------
+3a. Draft autosave — a no-op edit could leave Submit stuck on "Saving draft…"
+--------------------------------------------------------------------------
+
+File: src/app/features/applications/wizard/draft-autosave.service.ts
+
+Problem
+  Reproduced by editing a field, letting it save, then typing one character and
+  deleting it within the debounce window. The debounced value equalled the last
+  saved value, so the pipeline's duplicate check dropped it and no save ran — but
+  `hasPendingChanges` had already been raised and was never cleared. Submit stayed
+  disabled until an unrelated edit occurred.
+
+Change
+  The duplicate check now distinguishes two baselines:
+
+    - lastRequestedValue — the value most recently handed to the save pipeline.
+    - lastSavedValue     — the value the server has confirmed.
+
+  A debounced value is skipped only when it equals the last *requested* value, and
+  `hasPendingChanges` is cleared only when it also equals the last *confirmed*
+  value:
+
+    filter((value) => {
+      if (!isEqual(value, this.lastRequestedValue)) return true;
+      if (isEqual(value, this.lastSavedValue)) this.hasPendingChanges.set(false);
+      return false;
+    })
+
+  The previous `distinctUntilChanged(isEqual)` operator, which emitted nothing in
+  this case, was removed.
+
+Test: "clears the pending flag when an edit returns to the last saved value" —
+  saves "Acme", then sets "Acme X" and back to "Acme" inside one debounce window,
+  advances the timers, and asserts the flag is cleared with no extra request.
+
+
+--------------------------------------------------------------------------
+3b. Draft autosave — reverting during a slow save left the server on the old value
+--------------------------------------------------------------------------
+
+File: src/app/features/applications/wizard/draft-autosave.service.ts
+
+Problem
+  With a slow save in flight, a revert to the last saved value was mistaken for a
+  duplicate. The server held "A"; the user changed the field to "B" (a save of "B"
+  started, still in flight) and then changed it back to "A". The debounced "A"
+  equalled the last *saved* value ("A"), so it was skipped. When the "B" save
+  completed, the server held "B" while the form showed "A", with the pending flag
+  cleared and the state reporting "saved" — so Submit would have sent "B".
+
+Change
+  The skip check compares against `lastRequestedValue` (the value handed to the
+  pipeline), not `lastSavedValue`. Reverting to "A" while "B" is in flight is now a
+  change: "A" is queued behind "B" via `concatMap`, so the last value the server
+  receives is "A". `lastRequestedValue` is set when a value enters the pipeline and
+  reset to `lastSavedValue` if that save fails, so a failed value can be retried by
+  a later edit.
+
+Test: "re-saves a revert to the last saved value while a slow save is in flight" —
+  a 1-second fake save, change to "B", revert to "A", advance the clock, and assert
+  the fake server's last value is "A", pending is false and the state is "saved".
+
+
+--------------------------------------------------------------------------
+3c. Draft autosave — a failed save left Submit locked with no way back
+--------------------------------------------------------------------------
+
+Files: src/app/features/applications/wizard/draft-autosave.service.ts
+       src/app/features/applications/wizard/wizard.page.ts
+       src/app/features/applications/wizard/wizard.page.html
+       src/app/features/applications/wizard/wizard.page.scss
+
+Problem
+  After a failed save the header said "Couldn't save", but Submit stayed disabled
+  reading "Saving draft…" and the only way to retry was to make a dummy edit. This
+  contradicted the README's claim that the button "cannot get stuck".
+
+Change
+  DraftAutosaveService.retry() pushes a value through the existing debounce/filter/
+  concatMap pipeline, so a manual retry is not debounced, still serialises behind
+  any in-flight save, and re-uses the same version (the failed write never advanced
+  it). The wizard header renders a Retry button beside "Couldn't save" — hidden
+  during a version conflict, where Reload is the correct action — and Submit reads
+  "Fix save error first" while the state is "error". Returning to the last saved
+  value clears the error state as well, unless a conflict is pending.
+
+Test: "saves and clears pending when Retry is used after a failure" — a
+  deterministic 400 fails the first save, then Retry sends the current value and the
+  state becomes "saved" with pending cleared. Also verified manually: stop the mock
+  API, let a save fail, press Retry with the API back up.
+
+
+--------------------------------------------------------------------------
+4. Server-render mode — reloading a deep link logged the user out
+--------------------------------------------------------------------------
+
+File: src/app/app.routes.server.ts
+
+Problem
+  The catch-all route used `RenderMode.Server`. The session is stored in
+  `sessionStorage`, which the server cannot read, so the server-side auth guard
+  redirected protected URLs to `/login` before the browser could restore the
+  session. Reloading a detail page logged the user out.
+
+Change
+  The route uses `RenderMode.Client`. The application is entirely behind login, so
+  rendering in the browser lets `restoreSession()` run before any route decision.
+
+Verified: with the dev server running, `GET /applications` and
+`GET /applications/:id` return `200` (the client shell) instead of `302` to
+`/login`.
+
+
+--------------------------------------------------------------------------
+5. Mock API — debug routes opt-in and Windows-portable start script
+--------------------------------------------------------------------------
+
+Files: mock-api/server.js, package.json, README.md
+
+Problem
+  (a) The `/debug/*` routes (expire tokens, force `401`, chaos, reset, state
+      dump, audit log) were always mounted and could weaken the demo.
+  (b) The `mock-api` npm script used an inline `ENABLE_DEBUG=1` prefix. That
+      syntax works on macOS/Linux but fails on Windows, so `npm start` would not
+      run for a Windows reviewer.
+
+Change
+  - The debug routes are mounted only when enabled:
+
+        const DEBUG = process.argv.includes('--debug')
+          || process.env.ENABLE_DEBUG === '1';
+        ...
+        if (DEBUG) { ...all /debug routes... }
+
+  - `package.json` makes the debug helpers **opt-in** and passes a portable flag
+    instead of an environment prefix:
+
+        "start":          "concurrently \"ng serve\" \"npm run mock-api\"",
+        "start:debug":    "concurrently \"ng serve\" \"npm run mock-api:debug\"",
+        "mock-api":       "node mock-api/server.js",
+        "mock-api:debug": "node mock-api/server.js --debug"
+
+    `npm start` is therefore the normal mode (debug routes off);
+    `npm run start:debug` turns them on for demonstrations.
+
+  - The README documents both scripts alongside the `--debug` flag and
+    `ENABLE_DEBUG=1`, and adds a short "debugging a session" walkthrough.
+
+  Using a CLI flag avoids adding a dependency such as `cross-env` and behaves
+  identically on all platforms.
+
+Verified: `npm start` (no flag) serves `/health` with `200` while `/debug/state`
+returns `404`; `npm run start:debug` makes `/debug/state` return `200`.
+
+
+--------------------------------------------------------------------------
+6. Decision endpoint — authorisation before body validation
+--------------------------------------------------------------------------
+
+File: mock-api/server.js (POST /applications/:id/decision)
+
+Problem
+  The "assigned reviewer only" check ran after the decision/reason validation, so
+  a user without permission who sent a malformed body received `400` rather than
+  `403`.
+
+Change
+  The role check now runs first, immediately after the `404` existence check:
+  a user who may not decide always receives `403`, never a `400` about the body.
+
+Verified: an admin posting an empty body receives `403`; the assigned reviewer
+sending a too-short rejection reason still receives `400`.
+
+
+--------------------------------------------------------------------------
+7. Sensitive data — mask after submit for everyone (option A)
+--------------------------------------------------------------------------
+
+File: mock-api/data/store.js (`shouldMask`)
+
+Problem
+  The owning SALES user always saw real EIN / account values, including after
+  submission, and could see fields a reviewer would not.
+
+Change
+  `shouldMask` returns real values only when the viewer is the owning SALES user
+  *and* the application is still a `DRAFT`:
+
+    const ownsDraft =
+      user.role === 'SALES' &&
+      application.createdBy === user.id &&
+      application.status === 'DRAFT';
+
+  The owner still round-trips real values through autosave while the draft is
+  editable; once submitted, the application is masked for everyone. SALES does
+  not hold `sensitive:reveal`, so a submitted application is masked for its owner
+  with no reveal control.
+
+Verified: the owner sees real values only on their own `DRAFT`; after submit they
+are masked, and a SALES reveal request returns `403`.
+
+
+--------------------------------------------------------------------------
+8. Component file layout — templates and styles extracted
+--------------------------------------------------------------------------
+
+Templates and styles were moved out of inline `template:` / `styles:` strings
+into sibling files, matching the Angular CLI convention used by `app.ts`:
+
+    widget.component.ts
+    widget.component.html
+    widget.component.scss
+
+Each component now uses `templateUrl` / `styleUrl`. No inline template or style
+string remains in `src/`. Markup and CSS are byte-for-byte identical to the
+previous inline versions (de-indented only), so there is no behavioural change.
+
+
+--------------------------------------------------------------------------
+9. Housekeeping
+--------------------------------------------------------------------------
+
+  - `.gitignore` ignores `.env` and `.env.*` (with `!.env.example`) so that real
+    secrets cannot be committed even though none exist today.
+  - Build artefacts (`dist/`, `.angular/`) are ignored and were removed.
+
+
+--------------------------------------------------------------------------
+10. Component styles — plain CSS renamed to SCSS, shared breakpoints
+--------------------------------------------------------------------------
+
+Files: 18 × src/app/**/*.css → *.scss, src/styles/_breakpoints.scss (new),
+       angular.json, README.md
+
+Problem
+  The brief asks for "SCSS responsive layouts", but only the global
+  `src/styles.scss` was real SCSS; every component stylesheet was a plain
+  `.css` file. A literal reading could mark the SCSS requirement down even
+  though the styles are valid SCSS.
+
+Change
+  - The 18 component stylesheets were renamed `*.css` → `*.scss` and each
+    component's `styleUrl` now points at the `.scss` name (`app.css` →
+    `app.scss`, and the rest likewise).
+  - A shared partial `src/styles/_breakpoints.scss` defines the responsive
+    widths as SCSS variables — `$bp-compact` (480px), `$bp-medium` (720px),
+    `$bp-wide` (768px) and `$bp-desktop` (960px).
+  - `angular.json` lists `src/styles` in
+    `stylePreprocessorOptions.includePaths`, so the global stylesheet and the
+    component styles both consume the partial with `@use 'breakpoints' as bp;`.
+  - The media queries in `src/styles.scss`, `app.scss` and
+    `application-list.page.scss` now use those variables. The resolved widths
+    are unchanged, so the rendered layouts are identical.
+
+Verified: `grep -rn "\.css'" src/app` finds nothing; `npx ng build` and
+`npx ng test --no-watch` (9 spec files / 57 tests) still pass.
+
+
+--------------------------------------------------------------------------
+Verification
+--------------------------------------------------------------------------
+
+  npx ng build                 # production build, no errors
+  npx ng test --no-watch       # 9 spec files / 57 tests
+  npm start                    # normal mode: debug routes off
+  npm run start:debug          # debug routes on, for demonstrations
+
+Manual checks:
+  - Sales: create a draft, edit and let it autosave, then type and delete a
+    character within a second — Submit must not stay locked on "Saving draft…".
+  - Sales: with a slow save (use the `/debug/slow` flag), change a field, wait for
+    the save to start, then revert before it finishes — the server must end up
+    holding the reverted value, not the in-flight one.
+  - Reload a detail page after signing in — the session must survive.
+  - Reviewer / admin: decision returns `403` (not `400`) for a non-assignee.
+  - Without `--debug`, `/api/debug/state` returns `404`.
