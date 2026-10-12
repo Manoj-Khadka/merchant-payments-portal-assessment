@@ -1,0 +1,25 @@
+@use 'breakpoints' as bp;
+
+/* App-shell styling; global tokens and helpers live in src/styles.scss. */
+
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 0.5rem;
+}
+
+.brand {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.user {
+  margin-right: 0.5rem;
+}
+
+@media (max-width: bp.$bp-compact) {
+  .user {
+    display: none;
+  }
+}

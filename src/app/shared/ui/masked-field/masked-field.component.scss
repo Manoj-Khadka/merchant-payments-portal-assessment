@@ -1,0 +1,22 @@
+:host {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.masked-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.reveal-button {
+  --mat-button-outlined-container-height: 1.75rem;
+  font-size: 0.75rem;
+  padding: 0 0.5rem;
+}
+
+.reveal-error {
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-small);
+}

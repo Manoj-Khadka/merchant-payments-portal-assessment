@@ -1,0 +1,17 @@
+.error-state {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--mat-sys-error);
+  border-radius: 0.5rem;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.error-state__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}

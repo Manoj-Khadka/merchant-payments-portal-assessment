@@ -1,0 +1,17 @@
+<span class="masked-value" [class.is-revealed]="isRevealed()">{{ display() }}</span>
+@if (canReveal()) {
+  <button
+    mat-stroked-button
+    type="button"
+    class="reveal-button"
+    [attr.aria-pressed]="isRevealed()"
+    [attr.aria-label]="(isRevealed() ? 'Hide ' : 'Reveal ') + label()"
+    (click)="toggle()"
+  >
+    {{ isRevealed() ? 'Hide' : 'Reveal' }}
+  </button>
+}
+<span class="visually-hidden" role="status">{{ announcement() }}</span>
+@if (error(); as message) {
+  <span class="reveal-error" role="alert">{{ message }}</span>
+}

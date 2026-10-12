@@ -1,0 +1,11 @@
+<div class="error-state" role="alert">
+  <div class="error-state__text">
+    <strong>{{ title() }}</strong>
+    @if (message()) {
+      <span>{{ message() }}</span>
+    }
+  </div>
+  @if (showRetry()) {
+    <button mat-stroked-button type="button" (click)="retry.emit()">Retry</button>
+  }
+</div>

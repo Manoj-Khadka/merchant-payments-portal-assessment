@@ -1,0 +1,5 @@
+<div class="skeleton" aria-hidden="true">
+  @for (row of rowsList(); track $index) {
+    <span class="skeleton-row" [style.width.%]="widths[$index % widths.length]"></span>
+  }
+</div>

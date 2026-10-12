@@ -1,0 +1,38 @@
+.status-badge {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font: var(--mat-sys-label-medium);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.status-badge[data-status='DRAFT'] {
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+  border-color: var(--mat-sys-outline-variant);
+}
+
+.status-badge[data-status='SUBMITTED'] {
+  background: #e3f2fd;
+  color: #0d47a1;
+  border-color: #90caf9;
+}
+
+.status-badge[data-status='IN_REVIEW'] {
+  background: #fff8e1;
+  color: #7a5c00;
+  border-color: #ffe082;
+}
+
+.status-badge[data-status='APPROVED'] {
+  background: #e8f5e9;
+  color: #1b5e20;
+  border-color: #a5d6a7;
+}
+
+.status-badge[data-status='REJECTED'] {
+  background: #ffebee;
+  color: #b71c1c;
+  border-color: #ef9a9a;
+}

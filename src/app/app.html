@@ -1,0 +1,16 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+@if (auth.isAuthenticated()) {
+  <mat-toolbar class="app-toolbar">
+    <a class="brand" routerLink="/applications" mat-button>Merchant Payments</a>
+    <span class="spacer"></span>
+    @if (auth.user(); as user) {
+      <span class="user text-small">{{ user.name }} · {{ user.role }}</span>
+    }
+    <button mat-stroked-button type="button" (click)="auth.logout()">Sign out</button>
+  </mat-toolbar>
+}
+
+<main id="main-content" tabindex="-1">
+  <router-outlet />
+</main>
