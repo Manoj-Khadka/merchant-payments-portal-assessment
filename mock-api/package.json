@@ -1,0 +1,13 @@
+{
+  "name": "merchant-payments-portal-mock-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express mock API for the Merchant Payments Portal: auth, refresh-token rotation, RBAC and forced 401s.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

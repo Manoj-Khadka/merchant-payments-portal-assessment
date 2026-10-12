@@ -1,0 +1,18 @@
+// ---------------------------------------------------------------------------
+// Shared responsive breakpoints
+//
+// Consumed by the global stylesheet and by component stylesheets so every
+// layout collapses and expands at the same widths. Import it with:
+//
+//   @use 'breakpoints' as bp;
+//
+//   @media (min-width: bp.$bp-medium) { ... }
+//
+// `stylePreprocessorOptions.includePaths` in angular.json lists `src/styles`,
+// so the bare `@use 'breakpoints'` specifier resolves from any component.
+// ---------------------------------------------------------------------------
+
+$bp-compact: 480px; // max-width: single-column phone layout
+$bp-medium: 720px; // min-width: two-column forms / sidebar
+$bp-wide: 768px; // min-width: dashboard list switches from cards to a table
+$bp-desktop: 960px; // min-width: full multi-column layout
